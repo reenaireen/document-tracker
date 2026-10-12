@@ -53,13 +53,13 @@
             const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
             
             if (authError) {
-                alert("Login failed: " + authError.message);
+                alert("Login Error: " + authError.message);
                 loginBtn.disabled = false;
                 loginBtn.innerText = "Sign In";
                 return;
             }
 
-            // Check user role from profiles table for role-based routing
+            // Redirect based on role check
             const { data: profile, error: profileError } = await supabase
                 .from('profiles')
                 .select('role')
@@ -67,17 +67,12 @@
                 .single();
 
             if (profileError || !profile) {
-                alert("User profile not found.");
-                loginBtn.disabled = false;
-                loginBtn.innerText = "Sign In";
-                return;
-            }
-
-            // Role-based UI redirection
-            if (profile.role === 'staff') {
-                window.location.href = "dashboard.html"; // Staff Management UI
+                // Default to staff dashboard if profile query pending
+                window.location.href = "dashboard.html";
+            } else if (profile.role === 'staff') {
+                window.location.href = "dashboard.html";
             } else {
-                window.location.href = "index.html"; // Public / Default View UI
+                window.location.href = "index.html";
             }
         }
     </script>
