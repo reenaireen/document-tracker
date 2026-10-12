@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Tracker - Public View</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#FDFBF7] min-h-screen text-gray-800">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-[#6A1B29] text-[#FDFBF7] shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-wide">📄 Official Document Tracker</h1>
+            <a href="login.html" class="bg-[#EFECE6] text-[#6A1B29] px-4 py-2 rounded-lg font-semibold hover:bg-[#E5E0D5] transition">Staff Login</a>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="bg-white border border-[#E5E0D5] rounded-xl shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-bold text-[#6A1B29] mb-2">Check Item Status</h2>
+            <p class="text-gray-600 mb-4">Search through letters, certificates, and updates below. No login required.</p>
+            
+            <!-- Search Bar -->
+            <input type="text" id="searchInput" placeholder="Search by title or category..." onkeyup="filterDocuments()"
+                class="w-full px-4 py-3 border border-[#E5E0D5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6A1B29]">
+        </div>
+
+        <!-- Documents Table -->
+        <div class="bg-white border border-[#E5E0D5] rounded-xl shadow-sm overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-[#F7F4EE] border-b border-[#E5E0D5] text-[#6A1B29] uppercase text-xs">
+                    <tr>
+                        <th class="p-4">Title</th>
+                        <th class="p-4">Category</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4">Uploaded By</th>
+                        <th class="p-4">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="documentTableBody" class="divide-y divide-[#E5E0D5] text-gray-700">
+                    <tr><td colspan="5" class="p-4 text-center text-gray-400">Loading documents...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://zbfybgvjlnkdrptdkaih.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_r6kKJsXjDxQ5Skiei6iFAg_t5oesmBj";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let allDocs = [];
+
+        async function fetchDocuments() {
+            const { data, error } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
+            const tableBody = document.getElementById('documentTableBody');
+            
+            if (error) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Error loading data</td></tr>`;
+                return;
+            }
+
+            allDocs = data;
+            displayDocs(allDocs);
+        }
+
+        function displayDocs(docs) {
+            const tableBody = document.getElementById('documentTableBody');
+            if (docs.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">No documents found.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            docs.forEach(doc => {
+                let statusBadge = '';
+                if(doc.status === 'Done') statusBadge = '<span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-semibold">Done 🟢</span>';
+                else if(doc.status === 'In Progress') statusBadge = '<span class="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold">In Progress 🟡</span>';
+                else statusBadge = '<span class="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold">Pending ⚪</span>';
+
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-[#FDFBF7]">
+                        <td class="p-4 font-medium text-gray-900">${doc.title}</td>
+                        <td class="p-4">${doc.category}</td>
+                        <td class="p-4">${statusBadge}</td>
+                        <td class="p-4 text-sm text-gray-500">${doc.uploaded_by}</td>
+                        <td class="p-4">
+                            <a href="${doc.drive_link}" target="_blank" class="bg-[#F7F4EE] text-[#6A1B29] border border-[#E5E0D5] px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-[#E5E0D5] transition">View File 📄</a>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterDocuments() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allDocs.filter(d => d.title.toLowerCase().includes(query) || d.category.toLowerCase().includes(query));
+            displayDocs(filtered);
+        }
+
+        fetchDocuments();
+    </script>
+</body>
+</html>

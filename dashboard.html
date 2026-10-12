@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - Document Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#FDFBF7] min-h-screen text-gray-800">
+
+    <!-- Navigation Bar -->
+    <nav class="bg-[#6A1B29] text-[#FDFBF7] shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-wide">🛠️ Staff Management Dashboard</h1>
+            <div class="flex items-center gap-4">
+                <span id="staffName" class="text-sm font-medium">Loading profile...</span>
+                <button onclick="logout()" class="bg-[#EFECE6] text-[#6A1B29] px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-[#E5E0D5] transition">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        
+        <!-- Add Document Form Box -->
+        <div class="bg-white border border-[#E5E0D5] rounded-xl shadow-sm p-6 mb-8">
+            <h2 class="text-xl font-bold text-[#6A1B29] mb-4">Upload New Item / Update Status</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" id="docTitle" placeholder="Document Title (e.g. Letter for Approval)" class="px-4 py-2 border border-[#E5E0D5] rounded-lg focus:ring-2 focus:ring-[#6A1B29]">
+                <select id="docCategory" class="px-4 py-2 border border-[#E5E0D5] rounded-lg focus:ring-2 focus:ring-[#6A1B29]">
+                    <option value="Letter">Letter</option>
+                    <option value="Certificate">Certificate</option>
+                    <option value="Report">Report</option>
+                    <option value="Other">Other</option>
+                </select>
+                <select id="docStatus" class="px-4 py-2 border border-[#E5E0D5] rounded-lg focus:ring-2 focus:ring-[#6A1B29]">
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Done">Done</option>
+                </select>
+                <input type="text" id="docLink" placeholder="Google Drive Shareable Link (URL)" class="px-4 py-2 border border-[#E5E0D5] rounded-lg focus:ring-2 focus:ring-[#6A1B29]">
+            </div>
+            <button onclick="addDocument()" class="mt-4 bg-[#6A1B29] text-[#FDFBF7] px-6 py-2 rounded-lg font-semibold hover:bg-[#52131F] transition">Publish Item</button>
+        </div>
+
+        <!-- Management Table -->
+        <div class="bg-white border border-[#E5E0D5] rounded-xl shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-[#E5E0D5] bg-[#F7F4EE]">
+                <h3 class="text-lg font-bold text-[#6A1B29]">Existing System Records</h3>
+            </div>
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-gray-50 border-b border-[#E5E0D5] text-gray-700 uppercase text-xs">
+                    <tr>
+                        <th class="p-4">Title</th>
+                        <th class="p-4">Category</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4">Uploaded By</th>
+                        <th class="p-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="staffTableBody" class="divide-y divide-[#E5E0D5] text-gray-700">
+                    <tr><td colspan="5" class="p-4 text-center text-gray-400">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://zbfybgvjlnkdrptdkaih.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_r6kKJsXjDxQ5Skiei6iFAg_t5oesmBj";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let currentUserFullName = "";
+
+        async function checkUserSession() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                alert("Unauthorized! Please log in first.");
+                window.location.href = "login.html";
+                return;
+            }
+
+            const { data: profile } = await supabase.from('profiles').select('full_name, role').eq('id', session.user.id).single();
+            if (!profile || profile.role !== 'staff') {
+                alert("Access restricted to staff members only.");
+                window.location.href = "index.html";
+                return;
+            }
+
+            currentUserFullName = profile.full_name;
+            document.getElementById('staffName').innerText = `👤 ${currentUserFullName} (Staff)`;
+            fetchStaffDocuments();
+        }
+
+        async function fetchStaffDocuments() {
+            const { data, error } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
+            const tableBody = document.getElementById('staffTableBody');
+
+            if (error || data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">No records found.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            data.forEach(doc => {
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-[#FDFBF7]">
+                        <td class="p-4 font-medium text-gray-900">${doc.title}</td>
+                        <td class="p-4">${doc.category}</td>
+                        <td class="p-4">
+                            <select onchange="updateStatus('${doc.id}', this.value)" class="border border-[#E5E0D5] rounded p-1 text-sm bg-white">
+                                <option value="Pending" ${doc.status==='Pending'?'selected':''}>Pending</option>
+                                <option value="In Progress" ${doc.status==='In Progress'?'selected':''}>In Progress</option>
+                                <option value="Done" ${doc.status==='Done'?'selected':''}>Done</option>
+                            </select>
+                        </td>
+                        <td class="p-4 text-sm text-gray-500">${doc.uploaded_by}</td>
+                        <td class="p-4 flex gap-2">
+                            <a href="${doc.drive_link}" target="_blank" class="bg-[#F7F4EE] text-[#6A1B29] border border-[#E5E0D5] px-3 py-1 rounded text-sm hover:bg-[#E5E0D5]">View</a>
+                            <button onclick="deleteDoc('${doc.id}')" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1 rounded text-sm hover:bg-red-100">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function addDocument() {
+            const title = document.getElementById('docTitle').value;
+            const category = document.getElementById('docCategory').value;
+            const status = document.getElementById('docStatus').value;
+            const drive_link = document.getElementById('docLink').value;
+
+            if (!title || !drive_link) {
+                alert("Please fill in the title and the Google Drive link.");
+                return;
+            }
+
+            const { error } = await supabase.from('documents').insert([
+                { title, category, status, drive_link, uploaded_by: currentUserFullName }
+            ]);
+
+            if (error) {
+                alert("Error adding document: " + error.message);
+            } else {
+                alert("Item published successfully!");
+                document.getElementById('docTitle').value = '';
+                document.getElementById('docLink').value = '';
+                fetchStaffDocuments();
+            }
+        }
+
+        async function updateStatus(id, newStatus) {
+            await supabase.from('documents').update({ status: newStatus }).eq('id', id);
+        }
+
+        async function deleteDoc(id) {
+            if (confirm("Are you sure you want to delete this record?")) {
+                await supabase.from('documents').delete().eq('id', id);
+                fetchStaffDocuments();
+            }
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            window.location.href = "index.html";
+        }
+
+        checkUserSession();
+    </script>
+</body>
+</html>
