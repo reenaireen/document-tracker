@@ -70,37 +70,51 @@
             const enteredPasscode = document.getElementById('passcode').value.trim();
 
             if (enteredPasscode !== STAFF_SECRET_PASSCODE) {
-                alert("Invalid Staff Access Passcode! Access denied.");
+                alert("Invalid Staff Access Passcode!");
                 return;
             }
 
             if (!isPasswordStrong(password)) {
-                alert("Password is too weak! Must have 8+ chars, uppercase, lowercase, number, and special character.");
+                alert("Password is too weak! Require 8+ chars, uppercase, lowercase, number & special char.");
                 return;
             }
 
             submitBtn.disabled = true;
             submitBtn.innerText = "Creating account...";
 
-            // Sign up and pass name/department into user metadata for the database trigger
-            const { data, error } = await supabase.auth.signUp({
+            // Sign Up user
+            const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: email,
                 password: password,
                 options: {
-                    data: {
-                        full_name: fullName,
-                        department: department
-                    }
+                    data: { full_name: fullName, department: department }
                 }
             });
 
-            if (error) {
-                alert("Registration failed: " + error.message);
+            if (authError) {
+                alert("Sign Up Error: " + authError.message);
                 submitBtn.disabled = false;
                 submitBtn.innerText = "Create Account";
-            } else {
-                alert("Account created successfully! Please sign in.");
-                window.location.href = "login.html"; // Redirects to login page after successful registration
+                return;
+            }
+
+            // Direct Insert fallback (to guarantee profile creation)
+            if (authData.user) {
+                const { error: profileError } = await supabase.from('profiles').upsert([
+                    {
+                        id: authData.user.id,
+                        full_name: fullName,
+                        department: department,
+                        role: 'staff'
+                    }
+                ]);
+
+                if (profileError) {
+                    console.error("Profile Save Note:", profileError.message);
+                }
+                
+                alert("Success! Account created. Redirecting to Login...");
+                window.location.href = "login.html";
             }
         }
     </script>
