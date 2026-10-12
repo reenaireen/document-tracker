@@ -39,7 +39,8 @@
     <script>
         const SUPABASE_URL = "https://zbfybgvjlnkdrptdkaih.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpiZnliZ3ZqbG5rZHJwdGRrYWloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3NDQ3MDQsImV4cCI6MjEwNzMyMDcwNH0.dBMOi8ghiepkbM8_3IE6d4pfszbY4NgGKpVstm29jgs";
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Use window.supabase to prevent identifier conflict
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         async function handleLogin(event) {
             event.preventDefault();
@@ -50,7 +51,7 @@
             loginBtn.disabled = true;
             loginBtn.innerText = "Signing in...";
 
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+            const { data: authData, error: authError } = await client.auth.signInWithPassword({ email, password });
             
             if (authError) {
                 alert("Login Error: " + authError.message);
@@ -59,15 +60,14 @@
                 return;
             }
 
-            // Redirect based on role check
-            const { data: profile, error: profileError } = await supabase
+            // Check role from profiles table
+            const { data: profile, error: profileError } = await client
                 .from('profiles')
                 .select('role')
                 .eq('id', authData.user.id)
                 .single();
 
             if (profileError || !profile) {
-                // Default to staff dashboard if profile query pending
                 window.location.href = "dashboard.html";
             } else if (profile.role === 'staff') {
                 window.location.href = "dashboard.html";
